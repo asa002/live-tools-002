@@ -324,10 +324,10 @@
       </section>
 
       <section class="goal">
-        <label for="goalInput">入室目標</label>
+        <label for="goalInput">目標</label>
         <input type="number" id="goalInput" min="0" inputmode="numeric" placeholder="目標を入力">
         <div class="calc">
-          <span>入室目標 − 小計</span>
+          <span>目標 − 小計</span>
           <span>現在の合計 <b id="current">-</b></span>
         </div>
         <div class="remain" id="remain">目標を入力してください</div>
@@ -524,10 +524,10 @@
       tick.hidden = true;
     } else {
       const goal = Number(state.goal);
-      const current = goal - total; // 入室目標 − 小計
+      const current = goal - total; // 目標 − 小計
       currentEl.textContent = current;
       if (current <= 0) { remainEl.className = 'remain done'; remainEl.textContent = '🎉 目標達成！'; }
-      else { remainEl.className = 'remain'; remainEl.innerHTML = '目標達成まであと <span class="num">' + current + '</span> 人'; }
+      else { remainEl.className = 'remain'; remainEl.innerHTML = '目標達成まであと <span class="num">' + current + '</span> '; }
       barFill.style.width = (goal > 0 ? Math.max(0, Math.min(100, (total / goal) * 100)) : 100) + '%';
       const nx = state.next === '' ? 0 : Number(state.next);
       if (goal > 0 && nx > 0 && nx <= goal) { tick.hidden = false; tick.style.left = (nx / goal * 100) + '%'; }
@@ -600,8 +600,8 @@
     const lines = ['現在の集計：' + state.total];
     if (state.goal !== '') {
       const goal = Number(state.goal), rest = goal - state.total;
-      lines.push('入室目標：' + goal);
-      lines.push(rest <= 0 ? '目標達成！🎉' : '目標達成まであと' + rest + '人');
+      lines.push('目標：' + goal);
+      lines.push(rest <= 0 ? '目標達成！🎉' : '目標達成まであと' + rest );
     }
     if (state.next !== '') {
       const nx = Number(state.next), r = nx - catSum();
