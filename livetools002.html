@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>集計ツール</title>
+<style>
+  :root {
+    --bg: #f4f1fa;
+    --card: #ffffff;
+    --text: #2b2540;
+    --muted: #7a7390;
+    --plus: #4f8cff;
+    --first: #35b88a;
+    --love: #ff5fa2;
+    --toutoi: #8a5cf5;
+    --orange: #d9480f;
+    --teal: #0e8a9a;
+    --mark: #f59f00;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 16px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Hiragino Sans", "Meiryo", system-ui, sans-serif;
+  }
+  .app {
+    width: min(100%, 560px);
+    background: var(--card);
+    border-radius: 20px;
+    padding: 28px 24px;
+    box-shadow: 0 10px 30px rgba(60, 40, 110, .12);
+  }
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .topbar { flex-wrap: wrap; }
+  .top-btns { display: flex; gap: 8px; }
+  .status { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .status.warn { color: #e5484d; font-weight: 700; }
+  .small-btn {
+    background: #efeafb;
+    color: var(--toutoi);
+    padding: 10px 14px;
+    font-size: 14px;
+    border-radius: 10px;
+  }
+  .window {
+    text-align: center;
+    padding: 20px 10px 24px;
+    border-radius: 14px;
+    background: #faf8ff;
+    border: 2px solid #e6e0f5;
+    margin-bottom: 22px;
+  }
+  .window .label { font-size: 14px; color: var(--muted); letter-spacing: .1em; }
+  .window .value {
+    font-size: 64px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    transition: color .2s, transform .12s;
+  }
+  .window .value.negative { color: #e5484d; }
+  .window .value.bump { transform: scale(1.08); }
+  .goal {
+    background: #faf8ff;
+    border: 2px solid #e6e0f5;
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 22px;
+  }
+  .goal label { font-size: 14px; color: var(--muted); display: block; margin-bottom: 6px; }
+  .goal input {
+    width: 100%;
+    font-size: 22px;
+    font-weight: 700;
+    padding: 8px 12px;
+    border: 2px solid #d9d2ee;
+    border-radius: 10px;
+    font-family: inherit;
+    color: var(--text);
+  }
+  .goal input:focus { outline: none; border-color: var(--toutoi); }
+  .calc {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 14px;
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .calc b { color: var(--text); font-size: 18px; font-variant-numeric: tabular-nums; }
+  .remain {
+    margin-top: 14px;
+    text-align: center;
+    font-size: 22px;
+    font-weight: 700;
+  }
+  .remain .num { font-size: 40px; color: var(--love); font-variant-numeric: tabular-nums; }
+  .remain.done { color: var(--first); }
+  .bar {
+    position: relative;
+    height: 14px;
+    background: #e6e0f5;
+    border-radius: 999px;
+    overflow: hidden;
+    margin-top: 10px;
+  }
+  .bar > .fill {
+    height: 100%;
+    width: 0;
+    background: linear-gradient(90deg, var(--plus), var(--love));
+    border-radius: 999px;
+    transition: width .25s;
+  }
+  .bar > .tick {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    margin-left: -2px;
+    background: var(--mark);
+    box-shadow: 0 0 0 2px #e6e0f5;
+  }
+  .next-wrap { margin-top: 18px; padding-top: 16px; border-top: 2px dashed #e6e0f5; }
+  .next-wrap.reached input { border-color: var(--mark); }
+  .next-wrap .reached-msg { color: #b86e00; font-weight: 700; }
+  .cats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+  }
+  .cat {
+    --c: var(--plus);
+    background: #faf8ff;
+    border: 2px solid #e6e0f5;
+    border-radius: 14px;
+    padding: 12px;
+    display: grid;
+    gap: 8px;
+    min-width: 0;
+  }
+  .cat input {
+    width: 100%;
+    min-width: 0;
+    font-family: inherit;
+    color: var(--text);
+    border: 2px solid #d9d2ee;
+    border-radius: 10px;
+    background: #fff;
+  }
+  .cat input:focus { outline: none; border-color: var(--c); }
+  .cat .cname { font-size: 16px; font-weight: 700; padding: 8px 10px; }
+  .cat .cval { font-size: 20px; font-weight: 700; padding: 6px 10px; font-variant-numeric: tabular-nums; }
+  .cat .pm { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .cat .pm button { padding: 18px 4px; font-size: 20px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; touch-action: manipulation; }
+  .cat .plus { background: var(--c); }
+  .cat .minus { background: #fff; color: var(--c); box-shadow: inset 0 0 0 2px var(--c); }
+  .cat .csub { font-size: 13px; color: var(--muted); text-align: center; font-variant-numeric: tabular-nums; }
+  .cat .csub b { color: var(--text); font-size: 16px; }
+  .sl-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 22px; }
+  .sl-row .save-btn { background: var(--toutoi); }
+  .sl-row .load-btn { background: var(--plus); }
+  .reset-wrap { margin-top: 12px; }
+  .share {
+    margin-top: 22px;
+    background: #faf8ff;
+    border: 2px solid #e6e0f5;
+    border-radius: 14px;
+    padding: 16px;
+  }
+  .share label { font-size: 14px; color: var(--muted); display: block; margin-bottom: 6px; }
+  .share textarea {
+    width: 100%;
+    height: 110px;
+    resize: vertical;
+    font-size: 15px;
+    line-height: 1.5;
+    padding: 10px 12px;
+    border: 2px solid #d9d2ee;
+    border-radius: 10px;
+    font-family: inherit;
+    color: var(--text);
+  }
+  .share textarea:focus { outline: none; border-color: #1d9bf0; }
+  .share .meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 6px 0 12px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .share .meta button {
+    background: none;
+    color: var(--toutoi);
+    padding: 4px 6px;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 8px;
+  }
+  .share .count.over { color: #e5484d; font-weight: 700; }
+  .tweet { background: #1d9bf0; width: 100%; }
+  a.tweet {
+    display: block; text-align: center; text-decoration: none; border-radius: 14px; padding: 16px 8px;
+    font-size: 17px; font-weight: 700; color: #fff; background: #1d9bf0;
+  }
+  a.tweet[aria-disabled="true"] { background: #b7c4cf; pointer-events: none; }
+  button {
+    border: none;
+    border-radius: 14px;
+    padding: 16px 8px;
+    font-size: 17px;
+    font-weight: 700;
+    color: #fff;
+    cursor: pointer;
+    transition: transform .08s, filter .15s;
+    font-family: inherit;
+  }
+  button small { display: block; font-size: 13px; font-weight: 500; opacity: .9; margin-top: 2px; }
+  button:hover { filter: brightness(1.07); }
+  button:active { transform: scale(.96); }
+  button:focus-visible { outline: 3px solid #222; outline-offset: 2px; }
+  button:disabled { opacity: .5; cursor: default; }
+  .reset   { background: #6b6780; width: 100%; padding: 12px 8px; }
+  .armed   { background: #e5484d !important; color: #fff !important; box-shadow: none !important; }
+
+  /* スタート画面 */
+  .start h1 { font-size: 28px; margin: 0 0 6px; }
+  .start p { margin: 0 0 18px; color: var(--muted); }
+  .start .choices { display: grid; gap: 12px; }
+  .choice { text-align: left; padding: 16px; background: #6b6780; }
+  .choice.main { background: var(--toutoi); }
+  .choice b { font-size: 18px; display: block; }
+
+  /* セーブ / ロード */
+  .sheet {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    background: rgba(30, 20, 60, .5);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .sheet-panel {
+    background: #fff;
+    width: min(100%, 640px);
+    max-height: 92%;
+    overflow: auto;
+    border-radius: 18px 18px 0 0;
+    padding: 18px 16px calc(18px + env(safe-area-inset-bottom, 0px));
+    display: grid;
+    gap: 12px;
+  }
+  .sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .sheet-head h2 { margin: 0; font-size: 20px; }
+  .sheet-head button { background: #efeafb; color: var(--toutoi); padding: 10px 14px; font-size: 14px; border-radius: 10px; }
+  .save-name { font-size: 13px; color: var(--muted); display: grid; gap: 4px; }
+  .save-name input {
+    font-size: 16px; padding: 10px 12px; border: 2px solid #d9d2ee; border-radius: 10px;
+    font-family: inherit; color: var(--text); width: 100%;
+  }
+  .slots { display: grid; gap: 8px; }
+  .slot {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
+    padding: 10px 12px; background: #faf8ff; border: 2px solid #e6e0f5; border-radius: 12px;
+  }
+  .slot-info { flex: 1 1 200px; min-width: 0; }
+  .slot-title { font-weight: 700; overflow-wrap: anywhere; }
+  .slot-meta { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  .slot-act { display: flex; gap: 8px; }
+  .slot-act button { background: var(--toutoi); padding: 10px 12px; font-size: 15px; min-width: 92px; border-radius: 10px; }
+  .newgame { background: #6b6780; width: 100%; padding: 12px 8px; }
+
+  .toast {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; display: flex; justify-content: center;
+    pointer-events: none; padding: 0 16px calc(16px + env(safe-area-inset-bottom, 0px));
+  }
+  .toast span {
+    background: var(--text); color: #fff; padding: 10px 16px; border-radius: 10px; font-size: 14px; font-weight: 700;
+    opacity: 0; transform: translateY(8px); transition: opacity .2s, transform .2s;
+  }
+  .toast.on span { opacity: 1; transform: none; }
+</style>
+</head>
+<body>
+  <main class="app">
+
+    <!-- スタート画面 -->
+    <section class="start" id="startScreen" hidden>
+      <h1>集計ツール</h1>
+      <p id="startMsg">データを確認しています…</p>
+      <div class="choices">
+        <button class="choice main" id="bResume" type="button" hidden><b>前回の続きから</b><small id="resumeMeta"></small></button>
+        <button class="choice" id="bLoad" type="button" hidden><b>セーブデータを読み込む</b><small id="loadMeta"></small></button>
+        <button class="choice" id="bNew" type="button" hidden><b>新しく始める</b><small>目標・名前・数値を初期状態にします</small></button>
+      </div>
+    </section>
+
+    <!-- メイン画面 -->
+    <div id="mainScreen" hidden>
+      <div class="topbar">
+        <span class="status" id="status">自動保存 待機中</span>
+        <div class="top-btns">
+          <button class="small-btn" id="bSaveTop" type="button">セーブ</button>
+          <button class="small-btn" id="bLoadTop" type="button">ロード</button>
+        </div>
+      </div>
+
+      <section class="window" aria-live="polite">
+        <div class="label">集計（小計）</div>
+        <div class="value" id="total">0</div>
+      </section>
+
+      <section class="goal">
+        <label for="goalInput">入室目標</label>
+        <input type="number" id="goalInput" min="0" inputmode="numeric" placeholder="目標を入力">
+        <div class="calc">
+          <span>入室目標 − 小計</span>
+          <span>現在の合計 <b id="current">-</b></span>
+        </div>
+        <div class="remain" id="remain">目標を入力してください</div>
+        <div class="bar" id="bar"><div class="fill" id="barFill"></div><div class="tick" id="tick" hidden></div></div>
+
+        <div class="next-wrap" id="nextWrap">
+          <label for="nextInput">小計</label>
+          <input type="number" id="nextInput" min="0" inputmode="numeric" placeholder="小計を入力">
+          <div class="calc">
+            <span>小計 − カテゴリーの小計</span>
+            <span id="nextMsg"><b id="nextRemain">-</b></span>
+          </div>
+        </div>
+      </section>
+
+      <section class="cats" id="cats" aria-label="カテゴリ"></section>
+
+      <section class="share">
+        <label for="tweetText">Xに投稿する内容</label>
+        <textarea id="tweetText"></textarea>
+        <div class="meta">
+          <button type="button" id="regen">自動生成に戻す</button>
+          <span class="count" id="count">0 / 280</span>
+        </div>
+        <a class="tweet" id="tweetBtn" target="_blank" rel="noopener noreferrer">Xで投稿する</a>
+      </section>
+
+      <div class="sl-row">
+        <button class="save-btn" id="bSave" type="button">セーブ<small>スロットに保存</small></button>
+        <button class="load-btn" id="bLoadMain" type="button">ロード<small>保存データを読み込む</small></button>
+      </div>
+
+      <div class="reset-wrap">
+        <button class="reset" id="reset" type="button">リセット<small>小計を0に戻す（2回押し）</small></button>
+      </div>
+    </div>
+  </main>
+
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" hidden>
+    <div class="sheet-panel">
+      <div class="sheet-head">
+        <h2 id="sheetTitle">セーブ / ロード</h2>
+        <button id="sheetClose" type="button">閉じる</button>
+      </div>
+      <label class="save-name" id="saveNameRow" for="saveName">セーブ名（任意）
+        <input type="text" id="saveName" maxlength="24" placeholder="例: 2日目 夜">
+      </label>
+      <div class="slots" id="slots"></div>
+      <div id="newRow"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"><span id="toastT"></span></div>
+
+<script>
+(function () {
+  'use strict';
+  const KEY = 'shukei-tool-v2';
+  const SLOTS = 10;
+  const DEF = [1, 2, 3, 4, 5, 6].map(n => ['カテゴリー' + n, 0]);
+  const COLORS = ['var(--plus)', 'var(--first)', 'var(--love)', 'var(--toutoi)', 'var(--orange)', 'var(--teal)'];
+  const $ = id => document.getElementById(id);
+  const clone = o => JSON.parse(JSON.stringify(o));
+  const toInt = v => { const x = Math.round(Number(v)); return Number.isFinite(x) ? x : 0; };
+  const rawNum = v => { if (v === '' || v == null) return ''; const x = Number(v); return Number.isFinite(x) ? String(x) : ''; };
+  const fmtTime = ts => new Date(ts).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+  /* ---------- データ ---------- */
+  function newState() {
+    return { goal: '', next: '', total: 0, manual: false, text: '',
+      cats: DEF.map(c => ({ name: c[0], val: c[1], sum: 0 })) };
+  }
+  function sanitize(s) {
+    const d = newState();
+    if (!s || typeof s !== 'object') return d;
+    const o = { goal: rawNum(s.goal), next: rawNum(s.next), total: toInt(s.total),
+      manual: !!s.manual, text: typeof s.text === 'string' ? s.text.slice(0, 1000) : '', cats: [] };
+    for (let i = 0; i < 6; i++) {
+      const c = (s.cats && s.cats[i]) || {};
+      o.cats.push({
+        name: typeof c.name === 'string' ? c.name.slice(0, 20) : d.cats[i].name,
+        val: c.val == null ? d.cats[i].val : Math.abs(toInt(c.val)),
+        sum: toInt(c.sum)
+      });
+    }
+    return o;
+  }
+  function normStore(x) {
+    const o = { auto: null, slots: Array(SLOTS).fill(null) };
+    if (!x || typeof x !== 'object') return o;
+    if (x.auto && x.auto.state) o.auto = { state: sanitize(x.auto.state), savedAt: Number(x.auto.savedAt) || 0 };
+    for (let i = 0; i < SLOTS; i++) {
+      const s = x.slots && x.slots[i];
+      if (s && s.state) o.slots[i] = { state: sanitize(s.state), savedAt: Number(s.savedAt) || 0, label: typeof s.label === 'string' ? s.label.slice(0, 24) : '' };
+    }
+    return o;
+  }
+  let store = normStore(null);
+  let state = newState();
+  let changed = false;
+  let storageOK = true;
+  const hasData = () => !!store.auto || store.slots.some(Boolean);
+
+  function readLS() { try { return JSON.parse(localStorage.getItem(KEY)); } catch (e) { return null; } }
+  function writeLS() {
+    try { localStorage.setItem(KEY, JSON.stringify(store)); storageOK = true; } catch (e) { storageOK = false; }
+    scheduleRemote();
+  }
+  /* アカウントのデータベース(使える環境のみ)にも保存して、端末が変わっても続きから使えるようにする */
+  let dbDoc = null, remoteTimer = 0, remoteBusy = false, remoteDirty = false;
+  function scheduleRemote() {
+    if (!dbDoc) return;
+    clearTimeout(remoteTimer);
+    remoteTimer = setTimeout(pushRemote, 900);
+  }
+  async function pushRemote() {
+    if (!dbDoc) return;
+    if (remoteBusy) { remoteDirty = true; return; }
+    remoteBusy = true;
+    try { await dbDoc.set({ v: 1, json: JSON.stringify(store) }); } catch (e) {}
+    remoteBusy = false;
+    if (remoteDirty) { remoteDirty = false; scheduleRemote(); }
+  }
+  const newer = (x, y) => !x ? y : !y ? x : (y.savedAt > x.savedAt ? y : x);
+  function mergeStore(a, b) {
+    const o = normStore(null);
+    o.auto = newer(a.auto, b.auto);
+    for (let i = 0; i < SLOTS; i++) o.slots[i] = newer(a.slots[i], b.slots[i]);
+    return o;
+  }
+  async function initRemote() {
+    try {
+      const [db, user] = await Promise.all([claude.use('db'), claude.use('user')]);
+      if (!db || !user) return false;
+      const id = await user.id();
+      if (!id) return false;
+      dbDoc = db.doc('data/users/' + id + '/app');
+      const snap = await dbDoc.get();
+      if (snap.exists) {
+        const d = snap.data();
+        if (d && typeof d.json === 'string') { store = mergeStore(store, normStore(JSON.parse(d.json))); try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {} }
+      }
+      return true;
+    } catch (e) { dbDoc = null; return false; }
+  }
+  function setStatus() {
+    const el = $('status');
+    if (!storageOK) { el.textContent = '⚠ このブラウザでは保存できません'; el.classList.add('warn'); return; }
+    el.classList.remove('warn');
+    el.textContent = store.auto ? '自動保存 ' + new Date(store.auto.savedAt).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '自動保存 待機中';
+  }
+  function autoSave() { store.auto = { state: clone(state), savedAt: Date.now() }; writeLS(); setStatus(); }
+  function markChanged() { changed = true; autoSave(); }
+
+  /* ---------- 共通 ---------- */
+  let toastTimer = 0;
+  function toast(msg) {
+    $('toastT').textContent = msg; $('toast').classList.add('on');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => $('toast').classList.remove('on'), 2200);
+  }
+  function disarm(btn) { clearTimeout(btn._t); btn.classList.remove('armed'); if (btn._orig != null) btn.innerHTML = btn._orig; }
+  function arm(btn, armedText, fn) {
+    btn.addEventListener('click', () => {
+      if (btn.classList.contains('armed')) { disarm(btn); fn(); return; }
+      btn._orig = btn.innerHTML; btn.textContent = armedText; btn.classList.add('armed');
+      btn._t = setTimeout(() => disarm(btn), 3500);
+    });
+    return btn;
+  }
+  function summary(e) {
+    const g = e.state.goal === '' ? '未設定' : e.state.goal;
+    return '小計 ' + e.state.total + ' / 目標 ' + g + ' ・ ' + fmtTime(e.savedAt);
+  }
+
+  /* ---------- 表示（集計・目標・次の小計） ---------- */
+  const totalEl = $('total'), currentEl = $('current'), remainEl = $('remain'), barFill = $('barFill');
+
+  const catSum = () => state.cats.reduce((a, c) => a + c.sum, 0);
+  function render(bump) {
+    totalEl.textContent = state.total;
+    totalEl.classList.toggle('negative', state.total < 0);
+    if (bump) { totalEl.classList.add('bump'); setTimeout(() => totalEl.classList.remove('bump'), 120); }
+    renderGoal();
+    updateTweet();
+  }
+  function renderGoal() {
+    const total = state.total;
+    const tick = $('tick');
+    if (state.goal === '') {
+      currentEl.textContent = '-';
+      remainEl.className = 'remain';
+      remainEl.textContent = '目標を入力してください';
+      barFill.style.width = '0%';
+      tick.hidden = true;
+    } else {
+      const goal = Number(state.goal);
+      const current = goal - total; // 入室目標 − 小計
+      currentEl.textContent = current;
+      if (current <= 0) { remainEl.className = 'remain done'; remainEl.textContent = '🎉 目標達成！'; }
+      else { remainEl.className = 'remain'; remainEl.innerHTML = '目標達成まであと <span class="num">' + current + '</span> 人'; }
+      barFill.style.width = (goal > 0 ? Math.max(0, Math.min(100, (total / goal) * 100)) : 100) + '%';
+      const nx = state.next === '' ? 0 : Number(state.next);
+      if (goal > 0 && nx > 0 && nx <= goal) { tick.hidden = false; tick.style.left = (nx / goal * 100) + '%'; }
+      else tick.hidden = true;
+    }
+    // 次の小計
+    const wrap = $('nextWrap'), msg = $('nextMsg');
+    if (state.next === '') {
+      wrap.classList.remove('reached');
+      msg.innerHTML = '<b id="nextRemain">-</b>';
+    } else {
+      const left = Number(state.next) - catSum();
+      wrap.classList.toggle('reached', left <= 0);
+      msg.innerHTML = left <= 0 ? '<span class="reached-msg">到達！' + (left < 0 ? '（+' + (-left) + '）' : '') + '</span>'
+                                : 'あと <b id="nextRemain">' + left + '</b>';
+    }
+  }
+
+  /* ---------- カテゴリ ---------- */
+  const refs = [];
+  (function buildCats() {
+    const host = $('cats');
+    for (let i = 0; i < 6; i++) {
+      const el = document.createElement('div');
+      el.className = 'cat';
+      el.style.setProperty('--c', COLORS[i]);
+      el.innerHTML = '<input class="cname" id="cname' + i + '" type="text" maxlength="20" aria-label="カテゴリー' + (i + 1) + 'の名前">'
+        + '<input class="cval" id="cval' + i + '" type="number" inputmode="numeric" min="0" step="1" placeholder="数値" aria-label="カテゴリー' + (i + 1) + 'の数値">'
+        + '<div class="pm"><button type="button" class="minus" id="cm' + i + '"></button><button type="button" class="plus" id="cp' + i + '"></button></div>'
+        + '<div class="csub" id="csub' + i + '"></div>';
+      host.appendChild(el);
+      const r = { name: $('cname' + i), val: $('cval' + i), minus: $('cm' + i), plus: $('cp' + i), sub: $('csub' + i) };
+      refs.push(r);
+      r.name.addEventListener('input', () => { state.cats[i].name = r.name.value; renderCat(i); markChanged(); });
+      r.val.addEventListener('input', () => { state.cats[i].val = Math.abs(toInt(r.val.value)); renderCat(i); markChanged(); });
+      r.val.addEventListener('change', () => { r.val.value = state.cats[i].val || ''; });
+      [r.name, r.val].forEach(inp => inp.addEventListener('keydown', e => { if (e.key === 'Enter') inp.blur(); }));
+      r.minus.addEventListener('click', () => press(i, -1));
+      r.plus.addEventListener('click', () => press(i, 1));
+    }
+  })();
+  function renderCat(i) {
+    const c = state.cats[i], r = refs[i], n = c.name || 'カテゴリー' + (i + 1);
+    r.minus.textContent = '−' + (c.val || ''); r.plus.textContent = '+' + (c.val || '');
+    r.sub.innerHTML = 'カテゴリーの小計 <b>' + (c.sum > 0 ? '+' + c.sum : c.sum < 0 ? '−' + (-c.sum) : '0') + '</b>';
+    r.minus.setAttribute('aria-label', n + ' ' + c.val + ' 減らす');
+    r.plus.setAttribute('aria-label', n + ' ' + c.val + ' 増やす');
+  }
+  function press(i, dir) {
+    state.total += dir * state.cats[i].val;
+    state.cats[i].sum += dir * state.cats[i].val;
+    renderCat(i);
+    try { if (navigator.vibrate) navigator.vibrate(12); } catch (e) {}
+    markChanged(); render(true);
+  }
+
+  /* ---------- 入力欄・リセット ---------- */
+  $('goalInput').addEventListener('input', e => { state.goal = rawNum(e.target.value); markChanged(); renderGoal(); updateTweet(); });
+  $('nextInput').addEventListener('input', e => { state.next = rawNum(e.target.value); markChanged(); renderGoal(); updateTweet(); });
+  ['goalInput', 'nextInput'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); }));
+  arm($('reset'), 'もう一度押すとリセット', () => {
+    state.total = 0; state.cats.forEach(c => { c.sum = 0; });
+    markChanged(); render(true); for (let i = 0; i < 6; i++) renderCat(i);
+    toast('小計をリセットしました');
+  });
+
+  /* ---------- X(Twitter)投稿 ---------- */
+  const tweetText = $('tweetText'), countEl = $('count'), tweetBtn = $('tweetBtn');
+  function buildText() {
+    const lines = ['現在の集計：' + state.total];
+    if (state.goal !== '') {
+      const goal = Number(state.goal), rest = goal - state.total;
+      lines.push('入室目標：' + goal);
+      lines.push(rest <= 0 ? '目標達成！🎉' : '目標達成まであと' + rest + '人');
+    }
+    if (state.next !== '') {
+      const nx = Number(state.next), r = nx - catSum();
+      lines.push(r <= 0 ? '小計' + nx + '到達！' : '小計' + nx + 'まであと' + r);
+    }
+    return lines.join('\n');
+  }
+  // Xの重み付けカウント（半角=1、全角=2）の簡易版
+  function weightedLength(s) {
+    let n = 0;
+    for (const ch of s) n += ch.codePointAt(0) <= 0x10FF ? 1 : 2;
+    return n;
+  }
+  function updateCount() {
+    const n = weightedLength(tweetText.value);
+    countEl.textContent = n + ' / 280';
+    countEl.classList.toggle('over', n > 280);
+    if (n === 0 || n > 280) { tweetBtn.removeAttribute('href'); tweetBtn.setAttribute('aria-disabled', 'true'); }
+    else { tweetBtn.href = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(tweetText.value); tweetBtn.removeAttribute('aria-disabled'); }
+  }
+  function updateTweet() {
+    tweetText.value = state.manual ? state.text : buildText();
+    updateCount();
+  }
+  tweetText.addEventListener('input', () => { state.manual = true; state.text = tweetText.value; markChanged(); updateCount(); });
+  $('regen').addEventListener('click', () => { state.manual = false; state.text = ''; markChanged(); updateTweet(); });
+
+  /* ---------- 画面切り替え ---------- */
+  function showScreen(n) { $('startScreen').hidden = n !== 'start'; $('mainScreen').hidden = n !== 'main'; }
+  function renderAll() {
+    $('goalInput').value = state.goal;
+    $('nextInput').value = state.next;
+    for (let i = 0; i < 6; i++) { refs[i].name.value = state.cats[i].name; refs[i].val.value = state.cats[i].val || ''; renderCat(i); }
+    render(false); setStatus();
+  }
+  function enterMain() { showScreen('main'); renderAll(); window.scrollTo(0, 0); }
+  function startNew() { state = newState(); changed = false; enterMain(); }
+  function renderStart(loading) {
+    $('startMsg').textContent = loading ? 'データを確認しています…' : 'どちらから始めますか？';
+    $('bResume').hidden = loading || !store.auto;
+    $('bLoad').hidden = loading || !store.slots.some(Boolean);
+    $('bNew').hidden = loading || !hasData();
+    if (store.auto) $('resumeMeta').textContent = summary(store.auto);
+    $('loadMeta').textContent = store.slots.filter(Boolean).length + '件のセーブがあります';
+  }
+  $('bResume').addEventListener('click', () => { state = sanitize(store.auto.state); changed = false; enterMain(); });
+  $('bLoad').addEventListener('click', () => openSheet('start'));
+  $('bNew').addEventListener('click', startNew);
+  ['bSave', 'bSaveTop'].forEach(id => $(id).addEventListener('click', () => openSheet('save')));
+  ['bLoadMain', 'bLoadTop'].forEach(id => $(id).addEventListener('click', () => openSheet('load')));
+
+  /* ---------- セーブ / ロード ---------- */
+  let sheetMode = 'main', lastFocus = null;
+  function openSheet(mode) {
+    sheetMode = mode; lastFocus = document.activeElement;
+    renderSheet(); $('sheet').hidden = false; $('sheetClose').focus();
+  }
+  function closeSheet() {
+    $('sheet').hidden = true;
+    if (lastFocus && lastFocus.focus && document.contains(lastFocus)) lastFocus.focus();
+  }
+  function saveSlot(i) {
+    store.slots[i] = { state: clone(state), savedAt: Date.now(), label: $('saveName').value.trim().slice(0, 24) };
+    writeLS(); renderSheet(); setStatus(); toast('スロット ' + (i + 1) + ' にセーブしました');
+  }
+  function loadEntry(entry, name) {
+    state = sanitize(entry.state); changed = true;
+    autoSave(); closeSheet(); enterMain(); toast(name + 'をロードしました');
+  }
+  function mkBtn(text) { const b = document.createElement('button'); b.type = 'button'; b.textContent = text; return b; }
+  function slotRow(o) {
+    const row = document.createElement('div'); row.className = 'slot';
+    const info = document.createElement('div'); info.className = 'slot-info';
+    const t = document.createElement('div'); t.className = 'slot-title';
+    t.textContent = o.title + (o.entry && o.entry.label ? ' ・ ' + o.entry.label : '');
+    const m = document.createElement('div'); m.className = 'slot-meta';
+    m.textContent = o.entry ? summary(o.entry) : '空き';
+    info.appendChild(t); info.appendChild(m); row.appendChild(info);
+    const act = document.createElement('div'); act.className = 'slot-act';
+    if (o.canSave) {
+      const b = mkBtn('セーブ');
+      if (o.entry) arm(b, '上書きする？', () => saveSlot(o.idx)); else b.addEventListener('click', () => saveSlot(o.idx));
+      act.appendChild(b);
+    }
+    if (o.entry && sheetMode !== 'save') {
+      const b = mkBtn('ロード');
+      if (sheetMode === 'load') arm(b, '読み込む？', () => loadEntry(o.entry, o.name));
+      else b.addEventListener('click', () => loadEntry(o.entry, o.name));
+      act.appendChild(b);
+    }
+    row.appendChild(act);
+    return row;
+  }
+  function renderSheet() {
+    const isSave = sheetMode === 'save', isMain = sheetMode === 'load';
+    $('sheetTitle').textContent = isSave ? 'セーブ' : 'ロード';
+    $('saveNameRow').hidden = !isSave;
+    const list = $('slots'); list.textContent = '';
+    if (!isSave) list.appendChild(slotRow({ title: '直前のデータ（自動保存）', name: '直前のデータ', entry: store.auto, canSave: false }));
+    for (let i = 0; i < SLOTS; i++) list.appendChild(slotRow({ title: 'スロット ' + (i + 1), name: 'スロット ' + (i + 1), entry: store.slots[i], canSave: isSave, idx: i }));
+    const nr = $('newRow'); nr.textContent = '';
+    if (isMain) {
+      const b = mkBtn('新しく始める'); b.className = 'newgame';
+      arm(b, '現在のデータを初期化する？', () => { state = newState(); changed = true; autoSave(); closeSheet(); renderAll(); toast('新しく始めました'); });
+      nr.appendChild(b);
+    }
+  }
+  $('sheetClose').addEventListener('click', closeSheet);
+  $('sheet').addEventListener('click', e => { if (e.target === $('sheet')) closeSheet(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('sheet').hidden) closeSheet(); });
+
+  /* ---------- アプリを閉じる時の保存 ---------- */
+  function flush() {
+    if (changed && !$('mainScreen').hidden) autoSave();
+    clearTimeout(remoteTimer); pushRemote();
+  }
+  window.addEventListener('pagehide', flush);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flush(); });
+
+  /* ---------- 起動 ---------- */
+  store = normStore(readLS());
+  try { localStorage.setItem(KEY + '-t', '1'); localStorage.removeItem(KEY + '-t'); } catch (e) { storageOK = false; }
+  const remoteP = initRemote().then(ok => { if (ok && hasData()) scheduleRemote(); return ok; });
+  showScreen('start');
+  if (hasData()) {
+    renderStart(false);
+    remoteP.then(() => { if (!$('startScreen').hidden) renderStart(false); });
+  } else {
+    renderStart(true);
+    Promise.race([remoteP, new Promise(r => setTimeout(r, 2500))]).then(() => {
+      if ($('startScreen').hidden) return;
+      if (hasData()) renderStart(false); else startNew();
+    });
+  }
+})();
+</script>
+</body>
+</html>
