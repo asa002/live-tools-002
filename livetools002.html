@@ -73,6 +73,7 @@
   }
   .window .value.negative { color: #e5484d; }
   .window .value.bump { transform: scale(1.08); }
+  .window .bar { margin: 16px 14px 0; }
   .goal {
     background: #faf8ff;
     border: 2px solid #e6e0f5;
@@ -95,6 +96,8 @@
   .calc {
     display: flex;
     justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 4px 12px;
     margin-top: 14px;
     font-size: 14px;
     color: var(--muted);
@@ -135,9 +138,13 @@
   .next-wrap { margin-top: 18px; padding-top: 16px; border-top: 2px dashed #e6e0f5; }
   .next-wrap.reached input { border-color: var(--mark); }
   .next-wrap .reached-msg { color: #b86e00; font-weight: 700; }
+  .step { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 22px; }
+  .step button { padding: 20px 8px; font-size: 24px; font-variant-numeric: tabular-nums; touch-action: manipulation; }
+  .step .s-minus { background: #fff; color: var(--toutoi); box-shadow: inset 0 0 0 2px var(--toutoi); }
+  .step .s-plus { background: var(--toutoi); }
   .cats {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 12px;
   }
   .cat {
@@ -163,7 +170,7 @@
   .cat .cname { font-size: 16px; font-weight: 700; padding: 8px 10px; }
   .cat .cval { font-size: 20px; font-weight: 700; padding: 6px 10px; font-variant-numeric: tabular-nums; }
   .cat .pm { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .cat .pm button { padding: 18px 4px; font-size: 20px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; touch-action: manipulation; }
+  .cat .pm button { padding: 18px 4px; font-size: 20px; font-variant-numeric: tabular-nums; white-space: nowrap; touch-action: manipulation; }
   .cat .plus { background: var(--c); }
   .cat .minus { background: #fff; color: var(--c); box-shadow: inset 0 0 0 2px var(--c); }
   .cat .csub { font-size: 13px; color: var(--muted); text-align: center; font-variant-numeric: tabular-nums; }
@@ -319,28 +326,25 @@
       </div>
 
       <section class="window" aria-live="polite">
-        <div class="label">集計（小計）</div>
-        <div class="value" id="total">0</div>
+        <div class="label">集計（達成率）</div>
+        <div class="value" id="total">-</div>
+        <div class="bar" id="bar"><div class="fill" id="barFill"></div></div>
       </section>
 
       <section class="goal">
-        <label for="goalInput">目標</label>
+        <label for="goalInput">目標値</label>
         <input type="number" id="goalInput" min="0" inputmode="numeric" placeholder="目標を入力">
         <div class="calc">
-          <span>目標 − 小計</span>
-          <span>現在の合計 <b id="current">-</b></span>
+          <span>カテゴリーの合計 <b id="catTotal">0</b></span>
+          <span>目標値 − カテゴリーの合計 <b id="current">-</b></span>
         </div>
         <div class="remain" id="remain">目標を入力してください</div>
-        <div class="bar" id="bar"><div class="fill" id="barFill"></div><div class="tick" id="tick" hidden></div></div>
 
-        <div class="next-wrap" id="nextWrap">
-          <label for="nextInput">小計</label>
-          <input type="number" id="nextInput" min="0" inputmode="numeric" placeholder="小計を入力">
-          <div class="calc">
-            <span>小計 − カテゴリーの小計</span>
-            <span id="nextMsg"><b id="nextRemain">-</b></span>
-          </div>
-        </div>
+      </section>
+
+      <section class="step" aria-label="カテゴリーの合計を1ずつ調整">
+        <button type="button" class="s-minus" id="stepMinus" aria-label="カテゴリーの合計を1減らす">−1</button>
+        <button type="button" class="s-plus" id="stepPlus" aria-label="カテゴリーの合計を1増やす">+1</button>
       </section>
 
       <section class="cats" id="cats" aria-label="カテゴリ"></section>
@@ -361,7 +365,7 @@
       </div>
 
       <div class="reset-wrap">
-        <button class="reset" id="reset" type="button">リセット<small>小計を0に戻す（2回押し）</small></button>
+        <button class="reset" id="reset" type="button">リセット<small>合計を0に戻す（2回押し）</small></button>
       </div>
     </div>
   </main>
@@ -397,13 +401,13 @@
 
   /* ---------- データ ---------- */
   function newState() {
-    return { goal: '', next: '', total: 0, manual: false, text: '',
+    return { goal: '', next: '', total: 0, adj: 0, manual: false, text: '',
       cats: DEF.map(c => ({ name: c[0], val: c[1], sum: 0 })) };
   }
   function sanitize(s) {
     const d = newState();
     if (!s || typeof s !== 'object') return d;
-    const o = { goal: rawNum(s.goal), next: rawNum(s.next), total: toInt(s.total),
+    const o = { goal: rawNum(s.goal), next: rawNum(s.next), total: 0, adj: toInt(s.adj),
       manual: !!s.manual, text: typeof s.text === 'string' ? s.text.slice(0, 1000) : '', cats: [] };
     for (let i = 0; i < 6; i++) {
       const c = (s.cats && s.cats[i]) || {};
@@ -413,6 +417,7 @@
         sum: toInt(c.sum)
       });
     }
+    o.total = o.adj + o.cats.reduce((a, c) => a + c.sum, 0);
     return o;
   }
   function normStore(x) {
@@ -499,50 +504,45 @@
   }
   function summary(e) {
     const g = e.state.goal === '' ? '未設定' : e.state.goal;
-    return '小計 ' + e.state.total + ' / 目標 ' + g + ' ・ ' + fmtTime(e.savedAt);
+    return '合計 ' + e.state.total + ' / 目標 ' + g + ' ・ ' + fmtTime(e.savedAt);
   }
 
   /* ---------- 表示（集計・目標・次の小計） ---------- */
   const totalEl = $('total'), currentEl = $('current'), remainEl = $('remain'), barFill = $('barFill');
 
   const catSum = () => state.cats.reduce((a, c) => a + c.sum, 0);
+  // カテゴリーの合計 = 各カテゴリーの増減の合計 + ±1ボタンの調整分（操作のたびに自動で再計算）
+  const syncTotal = () => { state.total = catSum() + state.adj; return state.total; };
+  // 達成率(%)。目標未設定のときは null
+  const rate = () => {
+    if (state.goal === '') return null;
+    const goal = Number(state.goal);
+    return goal > 0 ? state.total / goal * 100 : (state.total >= 0 ? 100 : 0);
+  };
   function render(bump) {
-    totalEl.textContent = state.total;
-    totalEl.classList.toggle('negative', state.total < 0);
+    syncTotal();
     if (bump) { totalEl.classList.add('bump'); setTimeout(() => totalEl.classList.remove('bump'), 120); }
     renderGoal();
     updateTweet();
   }
   function renderGoal() {
     const total = state.total;
-    const tick = $('tick');
+    $('catTotal').textContent = total;
+    const pct = rate();
+    totalEl.textContent = pct === null ? '-' : (Math.round(pct * 10) / 10) + '%';
+    totalEl.classList.toggle('negative', pct !== null && pct < 0);
     if (state.goal === '') {
       currentEl.textContent = '-';
       remainEl.className = 'remain';
       remainEl.textContent = '目標を入力してください';
       barFill.style.width = '0%';
-      tick.hidden = true;
     } else {
       const goal = Number(state.goal);
-      const current = goal - total; // 目標 − 小計
+      const current = goal - total; // 目標値 − 小計
       currentEl.textContent = current;
       if (current <= 0) { remainEl.className = 'remain done'; remainEl.textContent = '🎉 目標達成！'; }
-      else { remainEl.className = 'remain'; remainEl.innerHTML = '目標達成まであと <span class="num">' + current + '</span> '; }
+      else { remainEl.className = 'remain'; remainEl.innerHTML = '目標達成まであと <span class="num">' + current + '</span> 人'; }
       barFill.style.width = (goal > 0 ? Math.max(0, Math.min(100, (total / goal) * 100)) : 100) + '%';
-      const nx = state.next === '' ? 0 : Number(state.next);
-      if (goal > 0 && nx > 0 && nx <= goal) { tick.hidden = false; tick.style.left = (nx / goal * 100) + '%'; }
-      else tick.hidden = true;
-    }
-    // 次の小計
-    const wrap = $('nextWrap'), msg = $('nextMsg');
-    if (state.next === '') {
-      wrap.classList.remove('reached');
-      msg.innerHTML = '<b id="nextRemain">-</b>';
-    } else {
-      const left = Number(state.next) - catSum();
-      wrap.classList.toggle('reached', left <= 0);
-      msg.innerHTML = left <= 0 ? '<span class="reached-msg">到達！' + (left < 0 ? '（+' + (-left) + '）' : '') + '</span>'
-                                : 'あと <b id="nextRemain">' + left + '</b>';
     }
   }
 
@@ -572,40 +572,48 @@
   function renderCat(i) {
     const c = state.cats[i], r = refs[i], n = c.name || 'カテゴリー' + (i + 1);
     r.minus.textContent = '−' + (c.val || ''); r.plus.textContent = '+' + (c.val || '');
-    r.sub.innerHTML = 'カテゴリーの小計 <b>' + (c.sum > 0 ? '+' + c.sum : c.sum < 0 ? '−' + (-c.sum) : '0') + '</b>';
+    // 桁数が多いときは文字を縮めて、ボタン内で折り返さないようにする
+    const fs = Math.max(11, 20 - Math.max(0, String(c.val || '').length - 6) * 2) + 'px';
+    r.minus.style.fontSize = fs; r.plus.style.fontSize = fs;
+    r.sub.innerHTML = '合計 <b>' + (c.sum > 0 ? '+' + c.sum : c.sum < 0 ? '−' + (-c.sum) : '0') + '</b>';
     r.minus.setAttribute('aria-label', n + ' ' + c.val + ' 減らす');
     r.plus.setAttribute('aria-label', n + ' ' + c.val + ' 増やす');
   }
   function press(i, dir) {
-    state.total += dir * state.cats[i].val;
     state.cats[i].sum += dir * state.cats[i].val;
+    syncTotal();
     renderCat(i);
     try { if (navigator.vibrate) navigator.vibrate(12); } catch (e) {}
     markChanged(); render(true);
   }
 
+  /* ---------- ±1ボタン（カテゴリーの合計を1ずつ調整） ---------- */
+  function stepAdj(d) {
+    state.adj += d; syncTotal();
+    try { if (navigator.vibrate) navigator.vibrate(12); } catch (e) {}
+    markChanged(); render(true);
+  }
+  $('stepMinus').addEventListener('click', () => stepAdj(-1));
+  $('stepPlus').addEventListener('click', () => stepAdj(1));
+
   /* ---------- 入力欄・リセット ---------- */
   $('goalInput').addEventListener('input', e => { state.goal = rawNum(e.target.value); markChanged(); renderGoal(); updateTweet(); });
-  $('nextInput').addEventListener('input', e => { state.next = rawNum(e.target.value); markChanged(); renderGoal(); updateTweet(); });
-  ['goalInput', 'nextInput'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); }));
+  ['goalInput'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); }));
   arm($('reset'), 'もう一度押すとリセット', () => {
-    state.total = 0; state.cats.forEach(c => { c.sum = 0; });
+    state.adj = 0; state.cats.forEach(c => { c.sum = 0; }); syncTotal();
     markChanged(); render(true); for (let i = 0; i < 6; i++) renderCat(i);
-    toast('小計をリセットしました');
+    toast('合計をリセットしました');
   });
 
   /* ---------- X(Twitter)投稿 ---------- */
   const tweetText = $('tweetText'), countEl = $('count'), tweetBtn = $('tweetBtn');
   function buildText() {
-    const lines = ['現在の集計：' + state.total];
+    const lines = ['進捗小計：' + state.total];
     if (state.goal !== '') {
       const goal = Number(state.goal), rest = goal - state.total;
-      lines.push('目標：' + goal);
-      lines.push(rest <= 0 ? '目標達成！🎉' : '目標達成まであと' + rest );
-    }
-    if (state.next !== '') {
-      const nx = Number(state.next), r = nx - catSum();
-      lines.push(r <= 0 ? '小計' + nx + '到達！' : '小計' + nx + 'まであと' + r);
+      lines.push('目標値：' + goal);
+      lines.push('達成率：' + (goal > 0 ? Math.round(state.total / goal * 1000) / 10 : (state.total >= 0 ? 100 : 0)) + '%');
+      lines.push(rest <= 0 ? '目標達成！🎉' : '目標達成まであと' + rest + '人');
     }
     return lines.join('\n');
   }
@@ -633,7 +641,6 @@
   function showScreen(n) { $('startScreen').hidden = n !== 'start'; $('mainScreen').hidden = n !== 'main'; }
   function renderAll() {
     $('goalInput').value = state.goal;
-    $('nextInput').value = state.next;
     for (let i = 0; i < 6; i++) { refs[i].name.value = state.cats[i].name; refs[i].val.value = state.cats[i].val || ''; renderCat(i); }
     render(false); setStatus();
   }
