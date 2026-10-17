@@ -278,6 +278,7 @@
   button:focus-visible { outline: 3px solid #222; outline-offset: 2px; }
   button:disabled { opacity: .5; cursor: default; }
   .reset   { background: #6b6780; width: 100%; padding: 12px 8px; }
+  .full-reset { background: #b42332; width: 100%; padding: 12px 8px; margin-top: 10px; }
   .armed   { background: #e5484d !important; color: #fff !important; box-shadow: none !important; }
 
   /* スタート画面 */
@@ -338,7 +339,7 @@
   }
   .toast.on span { opacity: 1; transform: none; }
 </style>
-</head>
+<script type="text/javascript" nonce="31fd9e19fdc64bf893e2458abfe" src="//local.adguard.org?ts=1792213371359&amp;type=content-script&amp;dmn=chatgpt.com&amp;url=https%3A%2F%2Fchatgpt.com%2Fbackend-api%2Festuary%2Fcontent%3Fid%3Dfile_0000000007908209919a1c60a5a042f4%26fn%3Dlivetools002_%25E5%25AE%258C%25E5%2585%25A8%25E5%2588%259D%25E6%259C%259F%25E5%258C%2596%25E8%25BF%25BD%25E5%258A%25A0.html%26cd%3Dattachment%26ts%3D497837%26p%3Dfs%26cid%3D1%26sig%3D191d7c1ea8b5879b5e5c37c9eeb353db1df2afaffab66f7bd8299198231cd8c6%26v%3D0&amp;app=opera.exe&amp;css=2&amp;js=1&amp;rel=1&amp;rji=1&amp;sbe=1&amp;stealth=1&amp;st-dnt"></script><script type="text/javascript" nonce="31fd9e19fdc64bf893e2458abfe" src="//local.adguard.org?ts=1792213371359&amp;name=AdGuard%20Extra&amp;name=AdGuard%20Popup%20Blocker&amp;type=user-script"></script></head>
 <body>
   <main class="app">
 
@@ -422,6 +423,7 @@
 
       <div class="reset-wrap">
         <button class="reset" id="reset" type="button">リセット<small>合計を0に戻す（2回押し）</small></button>
+        <button class="full-reset" id="fullReset" type="button">完全初期化<small>入力内容・目標・カテゴリー・保存データをすべて削除（2回押し）</small></button>
       </div>
     </div>
   </main>
@@ -730,6 +732,34 @@
     state.adj = 0; state.cats.forEach(c => { c.sum = 0; }); syncTotal();
     markChanged(); render(true); for (let i = 0; i < MAXCAT; i++) renderCat(i);
     toast('合計をリセットしました');
+  });
+
+  // 完全初期化：通常リセットとは別に、入力内容とローカル／リモートの保存データを削除
+  arm($('fullReset'), 'もう一度押すと全データを削除', async () => {
+    state = newState();
+    store = normStore(null);
+    changed = false;
+
+    try { localStorage.removeItem(KEY); } catch (e) { storageOK = false; }
+
+    // リモート保存先が利用できる場合は空のデータで上書きし、以前の保存データを消去
+    clearTimeout(remoteTimer);
+    remoteDirty = false;
+    if (dbDoc) {
+      try {
+        remoteBusy = true;
+        await dbDoc.set({ v: 1, json: JSON.stringify(store) });
+      } catch (e) {
+        toast('端末内データは初期化しましたが、クラウドデータの削除に失敗しました');
+      } finally {
+        remoteBusy = false;
+      }
+    }
+
+    closeSheet();
+    showScreen('main');
+    renderAll();
+    toast('完全初期化しました');
   });
 
   /* ---------- X(Twitter)投稿 ---------- */
