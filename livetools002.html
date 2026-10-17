@@ -93,9 +93,20 @@
     color: var(--text);
   }
   .goal input:focus { outline: none; border-color: var(--toutoi); }
-  .goal-row { display: flex; gap: 10px; }
+  .goal-row { display: flex; align-items: flex-end; gap: 10px; }
   .goal-row #goalInput { flex: 1; min-width: 0; }
-  .goal-row #unitInput { width: 96px; flex: none; text-align: center; font-size: 18px; }
+  .unit-col { width: 96px; flex: none; }
+  .unit-col label { text-align: center; margin-bottom: 4px; }
+  .goal-row #unitInput { text-align: center; font-size: 18px; }
+  .fold > summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px; margin-bottom: 12px; background: #efeafb; color: var(--toutoi); border-radius: 12px;
+    font-weight: 700; font-size: 14px; user-select: none; }
+  .fold > summary::-webkit-details-marker { display: none; }
+  .fold > summary::after { content: '▲ 閉じる'; font-size: 13px; font-weight: 600; }
+  .fold > summary:focus-visible { outline: 3px solid #222; outline-offset: 2px; }
+  .fold:not([open]) { margin-bottom: 22px; }
+  .fold:not([open]) > summary { margin-bottom: 0; }
+  .fold:not([open]) > summary::after { content: '▼ 開く'; }
   .calc {
     display: flex;
     justify-content: space-between;
@@ -107,7 +118,7 @@
   }
   .calc b { color: var(--text); font-size: 18px; font-variant-numeric: tabular-nums; }
   .remain {
-    margin-top: 14px;
+    margin: 0 0 16px;
     text-align: center;
     font-size: 22px;
     font-weight: 700;
@@ -338,7 +349,7 @@
       <div class="choices">
         <button class="choice main" id="bResume" type="button" hidden><b>前回の続きから</b><small id="resumeMeta"></small></button>
         <button class="choice" id="bLoad" type="button" hidden><b>セーブデータを読み込む</b><small id="loadMeta"></small></button>
-        <button class="choice" id="bNew" type="button" hidden><b>新しく始める</b><small>目標・名前・数値を初期状態にします</small></button>
+        <button class="choice" id="bNew" type="button" hidden><b>新しく始める</b><small>目標・名前・変動値を初期状態にします</small></button>
       </div>
     </section>
 
@@ -358,24 +369,25 @@
         <div class="bar" id="bar"><div class="fill" id="barFill"></div></div>
       </section>
 
-      <section class="goal">
-        <label for="goalInput">目標値（右の欄で単位を変更できます）</label>
-        <div class="goal-row">
-          <input type="number" id="goalInput" min="0" inputmode="numeric" placeholder="目標を入力">
-          <input type="text" id="unitInput" maxlength="8" placeholder="単位" aria-label="目標値の単位" value="人">
-        </div>
-        <div class="calc">
-          <span>カテゴリーの合計 <b id="catTotal">0</b></span>
-          <span>目標値 − カテゴリーの合計 <b id="current">-</b></span>
-        </div>
-        <div class="remain" id="remain">目標を入力してください</div>
+      <details class="fold" id="fold" open>
+        <summary>目標値・±1ボタン</summary>
 
-      </section>
+        <section class="goal">
+          <div class="remain" id="remain">目標を入力してください</div>
+          <div class="goal-row">
+            <input type="number" id="goalInput" min="0" inputmode="numeric" placeholder="目標を入力" aria-label="目標値">
+            <div class="unit-col">
+              <label for="unitInput">単位</label>
+              <input type="text" id="unitInput" maxlength="8" aria-label="目標値の単位">
+            </div>
+          </div>
+        </section>
 
-      <section class="step" aria-label="カテゴリーの合計を1ずつ調整">
-        <button type="button" class="s-minus" id="stepMinus" aria-label="カテゴリーの合計を1減らす">−1</button>
-        <button type="button" class="s-plus" id="stepPlus" aria-label="カテゴリーの合計を1増やす">+1</button>
-      </section>
+        <section class="step" aria-label="カテゴリーの合計を1ずつ調整">
+          <button type="button" class="s-minus" id="stepMinus" aria-label="カテゴリーの合計を1減らす">−1</button>
+          <button type="button" class="s-plus" id="stepPlus" aria-label="カテゴリーの合計を1増やす">+1</button>
+        </section>
+      </details>
 
       <section class="catctl" aria-label="カテゴリー数">
         <span class="catctl-label">カテゴリー数（0〜100）</span>
@@ -395,7 +407,7 @@
 
       <section class="share">
         <label for="tweetText">Xに投稿する内容</label>
-        <textarea id="tweetText" placeholder="カテゴリーに「数値」を設定すると、投稿文が自動で作成されます"></textarea>
+        <textarea id="tweetText" placeholder="カテゴリーに「変動値」を設定すると、投稿文が自動で作成されます"></textarea>
         <div class="meta">
           <button type="button" id="regen">自動生成に戻す</button>
           <span class="count" id="count">0 / 280</span>
@@ -447,13 +459,13 @@
 
   /* ---------- データ ---------- */
   function newState() {
-    return { goal: '', next: '', total: 0, adj: 0, unit: '人', n: DEFAULT_N, manual: false, text: '',
+    return { goal: '', next: '', total: 0, adj: 0, unit: '', n: DEFAULT_N, manual: false, text: '',
       cats: Array.from({ length: MAXCAT }, (_, i) => ({ name: i < DEF.length ? DEF[i][0] : 'カテゴリー' + (i + 1), val: 0, sum: 0, goal: '' })) };
   }
   function sanitize(s) {
     const d = newState();
     if (!s || typeof s !== 'object') return d;
-    const o = { goal: rawNum(s.goal), next: rawNum(s.next), total: 0, adj: toInt(s.adj), unit: typeof s.unit === 'string' ? s.unit.slice(0, 8) : '人',
+    const o = { goal: rawNum(s.goal), next: rawNum(s.next), total: 0, adj: toInt(s.adj), unit: typeof s.unit === 'string' ? s.unit.slice(0, 8) : '',
       manual: !!s.manual, text: typeof s.text === 'string' ? s.text.slice(0, 1000) : '', cats: [] };
     for (let i = 0; i < MAXCAT; i++) {
       const c = (s.cats && s.cats[i]) || {};
@@ -558,11 +570,11 @@
   }
 
   /* ---------- 表示（集計・目標・次の小計） ---------- */
-  const totalEl = $('total'), currentEl = $('current'), remainEl = $('remain'), barFill = $('barFill');
+  const totalEl = $('total'), remainEl = $('remain'), barFill = $('barFill');
 
   // 表示中（先頭からn個）のカテゴリーだけを合計に含める
   const catSum = () => state.cats.slice(0, state.n).reduce((a, c) => a + c.sum, 0);
-  // 「数値」が設定されているカテゴリー（増減が残っているものも含む）だけを一覧・投稿文に出す
+  // 「変動値」が設定されているカテゴリー（増減が残っているものも含む）だけを一覧・投稿文に出す
   const isActive = c => c.val > 0 || c.sum !== 0;
   // カテゴリーの合計 = 各カテゴリーの増減の合計 + ±1ボタンの調整分（操作のたびに自動で再計算）
   const syncTotal = () => { state.total = catSum() + state.adj; return state.total; };
@@ -598,7 +610,7 @@
     }
     if (!shown && state.adj === 0) {
       const e = document.createElement('div'); e.className = 'bd-empty';
-      e.textContent = '「数値」を設定したカテゴリーがここに表示されます';
+      e.textContent = '「変動値」を設定したカテゴリーがここに表示されます';
       host.appendChild(e);
     }
     if (state.adj !== 0) row('±1ボタンの調整', state.adj, null);
@@ -618,19 +630,16 @@
   }
   function renderGoal() {
     const total = state.total;
-    $('catTotal').textContent = total;
     const pct = rate();
     totalEl.textContent = pct === null ? '-' : (Math.round(pct * 10) / 10) + '%';
     totalEl.classList.toggle('negative', pct !== null && pct < 0);
     if (state.goal === '') {
-      currentEl.textContent = '-';
       remainEl.className = 'remain';
       remainEl.textContent = '目標を入力してください';
       barFill.style.width = '0%';
     } else {
       const goal = Number(state.goal);
       const current = goal - total; // 目標値 − 小計
-      currentEl.textContent = current;
       if (current <= 0) { remainEl.className = 'remain done'; remainEl.textContent = '🎉 目標達成！'; }
       else {
         remainEl.className = 'remain'; remainEl.textContent = '目標達成まであと ';
@@ -651,7 +660,7 @@
       el.hidden = i >= state.n;
       el.style.setProperty('--c', colorOf(i));
       el.innerHTML = '<input class="cname" id="cname' + i + '" type="text" maxlength="20" aria-label="カテゴリー' + (i + 1) + 'の名前">'
-        + '<input class="cval" id="cval' + i + '" type="number" inputmode="numeric" min="0" step="1" placeholder="数値" aria-label="カテゴリー' + (i + 1) + 'の数値">'
+        + '<input class="cval" id="cval' + i + '" type="number" inputmode="numeric" min="0" step="1" placeholder="変動値" aria-label="カテゴリー' + (i + 1) + 'の変動値">'
         + '<input class="cgoal" id="cgoal' + i + '" type="number" inputmode="numeric" min="0" step="1" placeholder="目標（任意）" aria-label="カテゴリー' + (i + 1) + 'の目標">'
         + '<div class="pm"><button type="button" class="minus" id="cm' + i + '"></button><button type="button" class="plus" id="cp' + i + '"></button></div>'
         + '<div class="csub" id="csub' + i + '"></div>';
@@ -734,7 +743,7 @@
       lines.push('目標達成率：' + fmtPct(pctOf(state.total, state.goal)) + '（' + state.total + '/' + goal + u + '）');
       lines.push(rest <= 0 ? '目標達成！🎉' : '目標達成まであと' + rest + u);
     }
-    // 内訳：「数値」が設定されたカテゴリーを、小計が±0・マイナスでもすべて載せる。
+    // 内訳：「変動値」が設定されたカテゴリーを、小計が±0・マイナスでもすべて載せる。
     // 目標のあるカテゴリーは「小計/目標（達成率）」、ないカテゴリーは小計のみ。
     // 280字を超えそうなら、入る分までを載せて末尾を「…他N件」にまとめる。
     const det = [];
