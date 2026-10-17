@@ -339,7 +339,7 @@
   }
   .toast.on span { opacity: 1; transform: none; }
 </style>
-<script type="text/javascript" nonce="31fd9e19fdc64bf893e2458abfe" src="//local.adguard.org?ts=1792213371359&amp;type=content-script&amp;dmn=chatgpt.com&amp;url=https%3A%2F%2Fchatgpt.com%2Fbackend-api%2Festuary%2Fcontent%3Fid%3Dfile_0000000007908209919a1c60a5a042f4%26fn%3Dlivetools002_%25E5%25AE%258C%25E5%2585%25A8%25E5%2588%259D%25E6%259C%259F%25E5%258C%2596%25E8%25BF%25BD%25E5%258A%25A0.html%26cd%3Dattachment%26ts%3D497837%26p%3Dfs%26cid%3D1%26sig%3D191d7c1ea8b5879b5e5c37c9eeb353db1df2afaffab66f7bd8299198231cd8c6%26v%3D0&amp;app=opera.exe&amp;css=2&amp;js=1&amp;rel=1&amp;rji=1&amp;sbe=1&amp;stealth=1&amp;st-dnt"></script><script type="text/javascript" nonce="31fd9e19fdc64bf893e2458abfe" src="//local.adguard.org?ts=1792213371359&amp;name=AdGuard%20Extra&amp;name=AdGuard%20Popup%20Blocker&amp;type=user-script"></script></head>
+<script type="text/javascript" nonce="31fd9e19fdc64bf893e2458abfe" src="//local.adguard.org?ts=1792213371359&amp;type=content-script&amp;dmn=chatgpt.com&amp;url=https%3A%2F%2Fchatgpt.com%2Fbackend-api%2Festuary%2Fcontent%3Fid%3Dfile_00000000c2408209b16bf67450bbde65%26fn%3Dlivetools002_%25E5%25AE%258C%25E5%2585%25A8%25E5%2588%259D%25E6%259C%259F%25E5%258C%2596%25E8%25BF%25BD%25E5%258A%25A0_%25E5%2588%259D%25E6%259C%259F%25E3%2582%25AB%25E3%2583%2586%25E3%2582%25B4%25E3%2583%25AA%25E3%2583%25BC2%25E5%2580%258B.html%26cd%3Dattachment%26ts%3D497837%26p%3Dfs%26cid%3D1%26sig%3D5d4b72a6f81c64583e5221cb570d27f611c33f0bad2c85fe767701640ca69011%26v%3D0&amp;app=opera.exe&amp;css=2&amp;js=1&amp;rel=1&amp;rji=1&amp;sbe=1&amp;stealth=1&amp;st-dnt"></script><script type="text/javascript" nonce="31fd9e19fdc64bf893e2458abfe" src="//local.adguard.org?ts=1792213371359&amp;name=AdGuard%20Extra&amp;name=AdGuard%20Popup%20Blocker&amp;type=user-script"></script></head>
 <body>
   <main class="app">
 
@@ -394,7 +394,7 @@
         <span class="catctl-label">カテゴリー数（0〜100）</span>
         <div class="catctl-box">
           <button type="button" id="catMinus" aria-label="カテゴリーを1つ減らす">−</button>
-          <input type="number" id="catCount" min="0" max="100" step="1" inputmode="numeric" value="6" aria-label="カテゴリー数">
+          <input type="number" id="catCount" min="0" max="100" step="1" inputmode="numeric" value="2" aria-label="カテゴリー数">
           <button type="button" id="catPlus" aria-label="カテゴリーを1つ増やす">＋</button>
         </div>
       </section>
@@ -449,9 +449,9 @@
   'use strict';
   const KEY = 'shukei-tool-v2';
   const SLOTS = 10;
-  const DEF = [1, 2, 3, 4, 5, 6].map(n => ['カテゴリー' + n, 0]);
+  const DEF = [1, 2].map(n => ['カテゴリー' + n, 0]);
   const COLORS = ['var(--plus)', 'var(--first)', 'var(--love)', 'var(--toutoi)', 'var(--orange)', 'var(--teal)'];
-  const MAXCAT = 100, DEFAULT_N = 6;
+  const MAXCAT = 100, DEFAULT_N = 2;
   const colorOf = i => i < COLORS.length ? COLORS[i] : 'hsl(' + ((i * 47) % 360) + ' 62% 48%)';
   const $ = id => document.getElementById(id);
   const clone = o => JSON.parse(JSON.stringify(o));
